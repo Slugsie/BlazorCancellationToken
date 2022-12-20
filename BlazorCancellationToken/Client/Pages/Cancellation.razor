@@ -1,0 +1,74 @@
+﻿@page "/cancellation"
+@inject HttpClient Http
+@implements IDisposable
+
+<h3>Cancellation</h3>
+<p>Start the cancellable call, then either cancel it or navigate away from this page.</p>
+<p><button class="btn btn-primary" @onclick=@CallCancellable disabled=@running>Start cancellable call</button>&nbsp;<button class="btn btn-warning" @onclick=@Cancel disabled=@(!running)>Cancel Task</button></p>
+<p>Result = [@result]</p>
+
+@code {
+    private CancellationTokenSource? CTS;
+    private string? result;
+    private bool running = false;
+
+    protected override void OnInitialized()
+    {
+    }
+
+    private CancellationToken CT => (CTS ??= new()).Token;
+
+    private async void CallCancellable()
+    {
+        running = true;
+        result = "Task running";
+        StateHasChanged();
+
+        try
+        {
+            result = await Http.GetStringAsync("Cancellation", CT);
+        }
+        catch (TaskCanceledException)
+        {
+            Console.WriteLine("Task was cancelled");
+            result = "Task was cancelled";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception {ex.Message}");
+            result = ex.Message;
+        }
+
+        running = false;
+
+        StateHasChanged();
+    }
+
+    private void Cancel()
+    {
+        CancelToken();
+
+        running = false;
+
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Cancels an existing CTS
+    /// </summary>
+    private void CancelToken()
+    {
+        if (CTS != null)
+        {
+            CTS.Cancel();
+            CTS.Dispose();
+            CTS = null;
+        }
+    }
+
+    public void Dispose()
+    {
+        Console.WriteLine("The page is being disposed, cancelling any tokens");
+        CancelToken();
+    }
+}
